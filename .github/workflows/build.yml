@@ -21,18 +21,18 @@ on:
 
       # ── Device info ──────────────────────────────────────────────────────
       device_name:
-        description: "Device name (human readable)"
+        description: "Device name"
         required: true
         default: "Samsung Galaxy A32 4G"
 
       device_codename:
         description: "Device codename"
         required: true
-        default: "M325F"
+        default: "SM-A325F"
 
       # ── Kernel source ─────────────────────────────────────────────────────
       kernel_repo:
-        description: "Kernel source repo (user/repo or full https URL)"
+        description: "Kernel source repo"
         required: true
         default: "YOUR_USERNAME/android_kernel_samsung_a32"
 
@@ -42,7 +42,7 @@ on:
         default: "main"
 
       kernel_depth:
-        description: "Git clone depth (1 = fastest, 0 = full history)"
+        description: "Git clone depth"
         required: false
         default: "1"
 
@@ -60,7 +60,7 @@ on:
       defconfig:
         description: "Defconfig name (inside arch/<ARCH>/configs/)"
         required: true
-        default: "m325f_defconfig"
+        default: "a32_defconfig"
 
       extra_configs:
         description: "Extra config fragments to merge, space-separated (e.g. 'vendor/debugfs.config vendor/lineage.config')"
@@ -203,9 +203,9 @@ on:
 # ─────────────────────────────────────────────────────────────────────────────
 env:
   DEVICE_NAME:      ${{ github.event.inputs.device_name      || 'Samsung Galaxy A32 4G' }}
-  DEVICE_CODENAME:  ${{ github.event.inputs.device_codename  || 'M325F' }}
+  DEVICE_CODENAME:  ${{ github.event.inputs.device_codename  || 'SM-A325F' }}
   ARCH:             ${{ github.event.inputs.arch             || 'arm64' }}
-  DEFCONFIG:        ${{ github.event.inputs.defconfig        || 'm325f_defconfig' }}
+  DEFCONFIG:        ${{ github.event.inputs.defconfig        || 'a32_defconfig' }}
   EXTRA_CONFIGS:    ${{ github.event.inputs.extra_configs    || '' }}
   TOOLCHAIN:        ${{ github.event.inputs.toolchain        || 'google-clang' }}
   CLANG_VERSION:    ${{ github.event.inputs.clang_version    || 'r522817' }}
