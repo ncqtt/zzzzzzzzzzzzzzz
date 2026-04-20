@@ -1,4 +1,12 @@
-workflow_dispatch:
+name: "🔨 Build Kernel"
+
+on:
+  push:
+    branches:
+      - main
+      - kernel-*
+
+  workflow_dispatch:
     inputs:
 
       # ── Device info ──────────────────────────────────────────────────────
@@ -77,7 +85,6 @@ workflow_dispatch:
           - "false"
 
       # ── GCC cross-compile ─────────────────────────────────────────────────
-      # MERGED: Provide both as "gcc64_url gcc32_url" space-separated, or leave empty
       gcc_repos:
         description: "GCC repo URLs: 'aarch64_repo arm32_repo' space-separated (leave empty for apt gcc)"
         required: false
@@ -160,3 +167,515 @@ workflow_dispatch:
         options:
           - "true"
           - "false"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  RESOLVED ENV — merges workflow_dispatch inputs with push defaults
+# ─────────────────────────────────────────────────────────────────────────────
+env:
+  DEVICE_NAME:      ${{ github.event.inputs.device_name      || 'Samsung Galaxy A32 4G' }}
+  DEVICE_CODENAME:  ${{ github.event.inputs.device_codename  || 'SM-A325F' }}
+  ARCH:             ${{ github.event.inputs.arch             || 'arm64' }}
+  DEFCONFIG:        ${{ github.event.inputs.defconfig        || 'a32_defconfig' }}
+  EXTRA_CONFIGS:    ${{ github.event.inputs.extra_configs    || '' }}
+  TOOLCHAIN:        ${{ github.event.inputs.toolchain        || 'google-clang' }}
+  CLANG_VERSION:    ${{ github.event.inputs.clang_version    || 'r522817' }}
+  CUSTOM_CLANG_REPO:   ${{ github.event.inputs.custom_clang_repo || '' }}
+  CUSTOM_CLANG_BRANCH: "main"
+  GCC_REPOS:        ${{ github.event.inputs.gcc_repos        || '' }}
+  USE_LLVM:         ${{ github.event.inputs.use_llvm         || 'true' }}
+  CCACHE_SIZE:      ${{ github.event.inputs.ccache_size      || '5G' }}
+  KERNEL_REPO:      ${{ github.event.inputs.kernel_repo      || 'YOUR_USERNAME/android_kernel_samsung_a32' }}
+  KERNEL_BRANCH:    ${{ github.event.inputs.kernel_branch    || 'main' }}
+  KERNEL_DEPTH:     "1"
+  ANYKERNEL_REPO:   ${{ github.event.inputs.anykernel_repo   || 'osm0sis/AnyKernel3' }}
+  ANYKERNEL_BRANCH: ${{ github.event.inputs.anykernel_branch || 'master' }}
+  INCLUDE_DTB:      ${{ github.event.inputs.include_dtb      || 'false' }}
+  INCLUDE_DTBO:     ${{ github.event.inputs.include_dtbo     || 'false' }}
+  IMAGE_NAME:       ${{ github.event.inputs.image_name       || 'Image' }}
+  ZIP_PREFIX:       ${{ github.event.inputs.zip_prefix       || 'Kernel' }}
+  ARTIFACT_DAYS:    "7"
+  CREATE_RELEASE:   ${{ github.event.inputs.create_release   || 'false' }}
+  RELEASE_TAG:      ${{ github.event.inputs.release_tag      || '' }}
+  SEND_ZIP_TG:      ${{ github.event.inputs.send_zip_telegram || 'true' }}
+
+  # Working directories
+  KERNEL_DIR:    "kernel_source"
+  ANYKERNEL_DIR: "AnyKernel3"
+  OUTPUT_DIR:    "out"
+  CLANG_DIR:     "toolchain/clang"
+  GCC64_DIR:     "toolchain/gcc64"
+  GCC32_DIR:     "toolchain/gcc32"
+
+  # Secrets
+  TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+jobs:
+  build:
+    name: 🏗️ ${{ github.event.inputs.device_codename || 'A32-4G' }} — ${{ github.event.inputs.toolchain || 'google-clang' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 1 — PREPARE ENVIRONMENT
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── 1a. Free disk space ───────────────────────────────────────────────────
+    - name: 🧹 Free disk space
+      run: |
+        echo "━━━ Disk before cleanup ━━━"
+        df -h /
+
+        sudo apt-get purge -y \
+          '^dotnet-.*' '^llvm-.*' '^php.*' '^mongodb.*' '^mysql.*' \
+          azure-cli google-cloud-cli google-chrome-stable \
+          firefox powershell mono-devel libgl1-mesa-dri snapd \
+          --fix-missing 2>/dev/null || true
+
+        sudo rm -rf \
+          /usr/share/dotnet \
+          /usr/local/lib/android \
+          /opt/ghc \
+          /opt/hostedtoolcache/CodeQL \
+          /usr/local/share/boost \
+          /usr/share/swift \
+          "$AGENT_TOOLSDIRECTORY"
+
+        sudo apt-get autoremove -y -qq
+        sudo apt-get autoclean -y -qq
+
+        echo "━━━ Disk after cleanup ━━━"
+        df -h /
+
+    # ── 1b. Install build dependencies ───────────────────────────────────────
+    - name: 📦 Install dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          bc bison build-essential ca-certificates ccache cpio curl \
+          flex git kmod libelf-dev libssl-dev lld lz4 \
+          python3 python3-pip schedtool zip zstd \
+          gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+          binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+
+    # ── 1c. Telegram — Build Started ─────────────────────────────────────────
+    - name: 📨 Telegram — Build Started
+      run: |
+        BUILD_TIME=$(date "+%Y-%m-%d %H:%M UTC")
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d chat_id="${TELEGRAM_CHAT_ID}" \
+          -d parse_mode="HTML" \
+          -d text="$(cat <<EOF
+        🔨 <b>Kernel Build Started</b>
+
+        📱 Device     : <code>${DEVICE_NAME} (${DEVICE_CODENAME})</code>
+        🌿 Branch     : <code>${GITHUB_REF_NAME}</code>
+        💬 Commit     : <code>${GITHUB_SHA::8}</code>
+        🛠 Toolchain  : <code>${TOOLCHAIN}</code>
+        ⚙️ Defconfig  : <code>${DEFCONFIG}</code>
+        🏗 Arch       : <code>${ARCH}</code>
+        🕐 Time       : <code>${BUILD_TIME}</code>
+
+        ⏳ Compiling... please wait.
+        EOF
+        )"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 2 — CHECKOUT SOURCES
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── 2a. Kernel source ─────────────────────────────────────────────────────
+    - name: 📥 Checkout kernel source
+      run: |
+        if [[ "${KERNEL_REPO}" == http* ]]; then
+          REPO_URL="${KERNEL_REPO}"
+        else
+          REPO_URL="https://github.com/${KERNEL_REPO}"
+        fi
+
+        echo "▶ Cloning: ${REPO_URL} (branch: ${KERNEL_BRANCH}, depth: ${KERNEL_DEPTH})"
+        git clone \
+          --depth="${KERNEL_DEPTH}" \
+          --branch="${KERNEL_BRANCH}" \
+          --single-branch \
+          "${REPO_URL}" \
+          "${KERNEL_DIR}"
+
+        cd "${KERNEL_DIR}"
+        echo "KERNEL_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        echo "▶ Kernel HEAD: $(git log --oneline -1)"
+
+    # ── 2b. AnyKernel3 ────────────────────────────────────────────────────────
+    - name: 📥 Checkout AnyKernel3
+      run: |
+        if [[ "${ANYKERNEL_REPO}" == http* ]]; then
+          AK_URL="${ANYKERNEL_REPO}"
+        else
+          AK_URL="https://github.com/${ANYKERNEL_REPO}"
+        fi
+
+        echo "▶ Cloning AnyKernel3: ${AK_URL} (branch: ${ANYKERNEL_BRANCH})"
+        git clone \
+          --depth=1 \
+          --branch="${ANYKERNEL_BRANCH}" \
+          "${AK_URL}" \
+          "${ANYKERNEL_DIR}"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 3 — TOOLCHAIN SETUP
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── 3a. Google Clang ──────────────────────────────────────────────────────
+    - name: 🛠️ Toolchain — Google Clang
+      if: env.TOOLCHAIN == 'google-clang'
+      run: |
+        mkdir -p "${CLANG_DIR}"
+        echo "▶ Downloading Google Clang ${CLANG_VERSION}..."
+        curl -sL \
+          "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-${CLANG_VERSION}.tar.gz" \
+          -o clang.tar.gz
+        tar -C "${CLANG_DIR}" -xzf clang.tar.gz
+        rm clang.tar.gz
+        echo "TC_PATH=$GITHUB_WORKSPACE/${CLANG_DIR}/bin" >> $GITHUB_ENV
+        echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
+        "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
+
+    # ── 3b. Proton Clang ──────────────────────────────────────────────────────
+    - name: 🛠️ Toolchain — Proton Clang
+      if: env.TOOLCHAIN == 'proton-clang'
+      run: |
+        REPO="${CUSTOM_CLANG_REPO:-https://github.com/kdrag0n/proton-clang}"
+        echo "▶ Cloning Proton Clang from ${REPO} (branch: ${CUSTOM_CLANG_BRANCH})..."
+        git clone --depth=1 --branch="${CUSTOM_CLANG_BRANCH}" "${REPO}" "${CLANG_DIR}"
+        echo "TC_PATH=$GITHUB_WORKSPACE/${CLANG_DIR}/bin" >> $GITHUB_ENV
+        echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
+        "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
+
+    # ── 3c. Neutron Clang ─────────────────────────────────────────────────────
+    - name: 🛠️ Toolchain — Neutron Clang
+      if: env.TOOLCHAIN == 'neutron-clang'
+      run: |
+        mkdir -p "${CLANG_DIR}"
+        echo "▶ Fetching latest Neutron Clang release..."
+        DOWNLOAD_URL=$(curl -s "https://api.github.com/repos/Neutron-Toolchains/clang-build-catalogue/releases/latest" \
+          | grep "browser_download_url.*tar.zst" | cut -d '"' -f 4 | head -1)
+        curl -sL "${DOWNLOAD_URL}" -o neutron.tar.zst
+        tar -C "${CLANG_DIR}" --use-compress-program=zstd -xf neutron.tar.zst
+        rm neutron.tar.zst
+        echo "TC_PATH=$GITHUB_WORKSPACE/${CLANG_DIR}/bin" >> $GITHUB_ENV
+        echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
+        "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
+
+    # ── 3d. AOSP Clang ────────────────────────────────────────────────────────
+    - name: 🛠️ Toolchain — AOSP Clang
+      if: env.TOOLCHAIN == 'aosp-clang'
+      run: |
+        REPO="${CUSTOM_CLANG_REPO:-https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379}"
+        echo "▶ Cloning AOSP Clang from ${REPO} (branch: ${CUSTOM_CLANG_BRANCH})..."
+        git clone --depth=1 --branch="${CUSTOM_CLANG_BRANCH}" "${REPO}" "${CLANG_DIR}"
+        echo "TC_PATH=$GITHUB_WORKSPACE/${CLANG_DIR}/bin" >> $GITHUB_ENV
+        echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
+        "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
+
+    # ── 3e. GCC-only (no Clang) ───────────────────────────────────────────────
+    - name: 🛠️ Toolchain — GCC only
+      if: env.TOOLCHAIN == 'gcc-only'
+      run: |
+        echo "▶ Using system GCC (no Clang)"
+        echo "TC_PATH=/usr/bin"  >> $GITHUB_ENV
+        echo "CC_PREFIX=gcc"     >> $GITHUB_ENV
+
+    # ── 3f. Custom GCC toolchains (optional) ──────────────────────────────────
+    - name: 🛠️ Custom GCC toolchains (optional)
+      if: env.GCC_REPOS != ''
+      run: |
+        GCC_64_REPO=$(echo "${GCC_REPOS}" | awk '{print $1}')
+        GCC_32_REPO=$(echo "${GCC_REPOS}" | awk '{print $2}')
+
+        if [[ -n "${GCC_64_REPO}" ]]; then
+          echo "▶ Cloning custom GCC aarch64 from ${GCC_64_REPO}..."
+          git clone --depth=1 "${GCC_64_REPO}" "${GCC64_DIR}"
+          echo "GCC64_PATH=$GITHUB_WORKSPACE/${GCC64_DIR}/bin" >> $GITHUB_ENV
+        fi
+
+        if [[ -n "${GCC_32_REPO}" ]]; then
+          echo "▶ Cloning custom GCC arm32 from ${GCC_32_REPO}..."
+          git clone --depth=1 "${GCC_32_REPO}" "${GCC32_DIR}"
+          echo "GCC32_PATH=$GITHUB_WORKSPACE/${GCC32_DIR}/bin" >> $GITHUB_ENV
+        fi
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 4 — CCACHE
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: ⚡ Restore ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key:  ccache-${{ env.DEVICE_CODENAME }}-${{ env.TOOLCHAIN }}-${{ env.DEFCONFIG }}-${{ github.sha }}
+        restore-keys: |
+          ccache-${{ env.DEVICE_CODENAME }}-${{ env.TOOLCHAIN }}-${{ env.DEFCONFIG }}-
+          ccache-${{ env.DEVICE_CODENAME }}-${{ env.TOOLCHAIN }}-
+          ccache-${{ env.DEVICE_CODENAME }}-
+
+    - name: ⚡ Configure ccache
+      run: |
+        ccache --max-size="${CCACHE_SIZE}"
+        ccache --zero-stats
+        echo "USE_CCACHE=1"               >> $GITHUB_ENV
+        echo "CCACHE_DIR=$HOME/.ccache"   >> $GITHUB_ENV
+        echo "CCACHE_COMPRESS=1"          >> $GITHUB_ENV
+        echo "CCACHE_COMPRESSLEVEL=6"     >> $GITHUB_ENV
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 5 — BUILD
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: 🔨 Build kernel
+      working-directory: ${{ env.KERNEL_DIR }}
+      run: |
+        # ── Resolve paths ───────────────────────────────────────────────────
+        CROSS64="${GCC64_PATH:-/usr/bin}/aarch64-linux-gnu-"
+        CROSS32="${GCC32_PATH:-/usr/bin}/arm-linux-gnueabi-"
+
+        # Add toolchain to PATH
+        export PATH="${TC_PATH}:${GCC64_PATH:-/usr/bin}:${GCC32_PATH:-/usr/bin}:${PATH}"
+
+        # ── Base make flags ──────────────────────────────────────────────────
+        MAKE_FLAGS=(
+          -j$(nproc --all)
+          O="../${OUTPUT_DIR}"
+          ARCH="${ARCH}"
+          CC="ccache ${CC_PREFIX}"
+          CROSS_COMPILE="${CROSS64}"
+          CROSS_COMPILE_ARM32="${CROSS32}"
+        )
+
+        # ── LLVM flags (optional) ────────────────────────────────────────────
+        if [[ "${USE_LLVM}" == "true" && "${TOOLCHAIN}" != "gcc-only" ]]; then
+          MAKE_FLAGS+=(
+            CLANG_TRIPLE="aarch64-linux-gnu-"
+            LLVM=1
+            LLVM_IAS=1
+          )
+        fi
+
+        echo "━━━ Make flags ━━━"
+        printf '%s\n' "${MAKE_FLAGS[@]}"
+        echo "═══════════════════"
+
+        # ── Generate defconfig ────────────────────────────────────────────────
+        echo "▶ Generating defconfig: ${DEFCONFIG}"
+        make "${MAKE_FLAGS[@]}" "${DEFCONFIG}"
+
+        # ── Merge extra config fragments ──────────────────────────────────────
+        if [[ -n "${EXTRA_CONFIGS}" ]]; then
+          echo "▶ Merging extra configs: ${EXTRA_CONFIGS}"
+          for cfg in ${EXTRA_CONFIGS}; do
+            if [[ -f "${cfg}" ]]; then
+              scripts/kconfig/merge_config.sh -m -O "../${OUTPUT_DIR}" \
+                "../${OUTPUT_DIR}/.config" "${cfg}"
+            else
+              echo "⚠️  Config fragment not found, skipping: ${cfg}"
+            fi
+          done
+          make "${MAKE_FLAGS[@]}" olddefconfig
+        fi
+
+        # ── Compile ───────────────────────────────────────────────────────────
+        echo "▶ Starting compile on $(nproc --all) threads..."
+        START_TIME=$(date +%s)
+
+        make "${MAKE_FLAGS[@]}" 2>&1 | tee "../build.log"
+        EXIT_CODE=${PIPESTATUS[0]}
+
+        END_TIME=$(date +%s)
+        ELAPSED=$(( END_TIME - START_TIME ))
+        echo "BUILD_SECONDS=${ELAPSED}" >> $GITHUB_ENV
+
+        if [[ ${EXIT_CODE} -ne 0 ]]; then
+          echo "❌ Build failed with exit code ${EXIT_CODE}"
+          exit ${EXIT_CODE}
+        fi
+        echo "✅ Build finished in ${ELAPSED}s"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 6 — PACKAGE
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: 📦 Package flashable ZIP
+      run: |
+        TIMESTAMP=$(date "+%Y%m%d-%H%M")
+        ZIP_NAME="${ZIP_PREFIX}-${DEVICE_CODENAME}-${TIMESTAMP}.zip"
+        echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
+
+        BOOT_DIR="${OUTPUT_DIR}/arch/${ARCH}/boot"
+
+        # ── Copy kernel image ─────────────────────────────────────────────────
+        if [[ -f "${BOOT_DIR}/${IMAGE_NAME}" ]]; then
+          cp "${BOOT_DIR}/${IMAGE_NAME}" "${ANYKERNEL_DIR}/"
+          echo "▶ Copied ${IMAGE_NAME}"
+        else
+          echo "❌ Kernel image not found: ${BOOT_DIR}/${IMAGE_NAME}"
+          ls "${BOOT_DIR}/" || true
+          exit 1
+        fi
+
+        # ── Copy DTB (optional) ───────────────────────────────────────────────
+        if [[ "${INCLUDE_DTB}" == "true" ]]; then
+          mkdir -p "${ANYKERNEL_DIR}/dtb"
+          find "${BOOT_DIR}/dts" -name "*.dtb" -exec cp {} "${ANYKERNEL_DIR}/dtb/" \;
+          DTB_COUNT=$(ls "${ANYKERNEL_DIR}/dtb/" | wc -l)
+          echo "▶ Copied ${DTB_COUNT} DTB file(s)"
+        fi
+
+        # ── Copy DTBO (optional) ──────────────────────────────────────────────
+        if [[ "${INCLUDE_DTBO}" == "true" ]]; then
+          if [[ -f "${BOOT_DIR}/dtbo.img" ]]; then
+            cp "${BOOT_DIR}/dtbo.img" "${ANYKERNEL_DIR}/"
+            echo "▶ Copied dtbo.img"
+          else
+            echo "⚠️  dtbo.img not found, skipping"
+          fi
+        fi
+
+        # ── Zip ───────────────────────────────────────────────────────────────
+        cd "${ANYKERNEL_DIR}"
+        zip -r9 "../${ZIP_NAME}" . -x "*.git*" "*.github*" "*.md" "*.txt"
+        cd ..
+
+        ZIP_SIZE=$(du -sh "${ZIP_NAME}" | cut -f1)
+        echo "ZIP_SIZE=${ZIP_SIZE}" >> $GITHUB_ENV
+        echo "▶ ZIP: ${ZIP_NAME} (${ZIP_SIZE})"
+
+    # ── Upload build log (always, for debugging) ──────────────────────────────
+    - name: 📋 Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log-${{ env.DEVICE_CODENAME }}
+        path: build.log
+        retention-days: 3
+
+    # ── Upload ZIP to GitHub Artifacts ────────────────────────────────────────
+    - name: ☁️ Upload ZIP to GitHub Artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ZIP_NAME }}
+        path: ${{ env.ZIP_NAME }}
+        retention-days: ${{ env.ARTIFACT_DAYS }}
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 7 — RELEASE (optional)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: 🏷️ Create GitHub Release
+      if: success() && env.CREATE_RELEASE == 'true' && env.RELEASE_TAG != ''
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name:   ${{ env.RELEASE_TAG }}
+        name:       "Kernel ${{ env.RELEASE_TAG }} — ${{ env.DEVICE_NAME }}"
+        body: |
+          ## 🔨 Kernel Build
+
+          | Field       | Value                                          |
+          |-------------|------------------------------------------------|
+          | Device      | ${{ env.DEVICE_NAME }} (${{ env.DEVICE_CODENAME }}) |
+          | Branch      | ${{ github.ref_name }}                         |
+          | Commit      | ${{ github.sha }}                              |
+          | Toolchain   | ${{ env.TOOLCHAIN }}                           |
+          | Defconfig   | ${{ env.DEFCONFIG }}                           |
+          | DTB         | ${{ env.INCLUDE_DTB }}                         |
+          | DTBO        | ${{ env.INCLUDE_DTBO }}                        |
+        files: ${{ env.ZIP_NAME }}
+        draft: false
+        prerelease: false
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 8 — TELEGRAM NOTIFICATIONS
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: 📨 Telegram — Build Succeeded ✅
+      if: success()
+      run: |
+        MINS=$(( BUILD_SECONDS / 60 ))
+        SECS=$(( BUILD_SECONDS % 60 ))
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d chat_id="${TELEGRAM_CHAT_ID}" \
+          -d parse_mode="HTML" \
+          -d text="$(cat <<EOF
+        ✅ <b>Kernel Build Succeeded!</b>
+
+        📱 Device    : <code>${DEVICE_NAME} (${DEVICE_CODENAME})</code>
+        🛠 Toolchain : <code>${TOOLCHAIN}</code>
+        ⚙️ Defconfig : <code>${DEFCONFIG}</code>
+        🌿 Branch    : <code>${GITHUB_REF_NAME}</code>
+        💬 Commit    : <code>${GITHUB_SHA::8}</code>
+        ⏱ Duration  : <code>${MINS}m ${SECS}s</code>
+        📦 ZIP       : <code>${ZIP_NAME}</code>  (${ZIP_SIZE})
+        🔗 Actions   : <a href="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}">View run</a>
+
+        🎉 Ready to flash!
+        EOF
+        )"
+
+    - name: 📨 Telegram — Send ZIP file
+      if: success() && env.SEND_ZIP_TG == 'true'
+      run: |
+        FILE_SIZE_BYTES=$(stat -c%s "${ZIP_NAME}")
+        MAX_BYTES=52428800   # 50 MB Telegram limit
+
+        if [[ ${FILE_SIZE_BYTES} -le ${MAX_BYTES} ]]; then
+          echo "▶ Uploading ZIP to Telegram..."
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument" \
+            -F chat_id="${TELEGRAM_CHAT_ID}" \
+            -F document=@"${ZIP_NAME}" \
+            -F caption="🔨 <b>${DEVICE_NAME}</b> — <code>${TOOLCHAIN}</code> @ <code>${GITHUB_SHA::8}</code>" \
+            -F parse_mode="HTML"
+        else
+          echo "⚠️  ZIP is larger than 50 MB (${ZIP_SIZE}), skipping Telegram upload."
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="HTML" \
+            -d text="📦 ZIP too large for Telegram (${ZIP_SIZE}). <a href='${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}'>Download from Actions.</a>"
+        fi
+
+    - name: 📨 Telegram — Build Failed ❌
+      if: failure()
+      run: |
+        ERRORS=""
+        if [[ -f build.log ]]; then
+          ERRORS=$(grep -i "error:" build.log | tail -5 | head -c 800 || true)
+        fi
+
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d chat_id="${TELEGRAM_CHAT_ID}" \
+          -d parse_mode="HTML" \
+          -d text="$(cat <<EOF
+        ❌ <b>Kernel Build Failed!</b>
+
+        📱 Device    : <code>${DEVICE_NAME} (${DEVICE_CODENAME})</code>
+        🛠 Toolchain : <code>${TOOLCHAIN}</code>
+        ⚙️ Defconfig : <code>${DEFCONFIG}</code>
+        🌿 Branch    : <code>${GITHUB_REF_NAME}</code>
+        💬 Commit    : <code>${GITHUB_SHA::8}</code>
+        🔗 Logs      : <a href="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}">View full logs</a>
+
+        😢 Fix the errors and try again.
+        EOF
+        )"
+
+    # ══════════════════════════════════════════════════════════════════════════
+    #  STAGE 9 — POST
+    # ══════════════════════════════════════════════════════════════════════════
+
+    - name: 📊 ccache stats
+      if: always()
+      run: ccache --show-stats
+
+    - name: 🧾 Disk usage summary
+      if: always()
+      run: df -h /
