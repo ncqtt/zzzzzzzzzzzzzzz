@@ -1,11 +1,6 @@
 name: "🔨 Build Kernel"
 
 on:
-  push:
-    branches:
-      - main
-      - kernel-*
-
   workflow_dispatch:
     inputs:
 
