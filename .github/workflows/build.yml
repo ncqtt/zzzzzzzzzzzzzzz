@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
     inputs:
 
-      #  Device info 
       device_name:
         description: "Device name"
         required: true
@@ -15,7 +14,6 @@ on:
         required: true
         default: "SM-A325F"
 
-      #  Kernel source 
       kernel_repo:
         description: "Kernel source repo (user/repo or full URL)"
         required: true
@@ -26,7 +24,6 @@ on:
         required: true
         default: "main"
 
-      #  Architecture 
       arch:
         description: "Target architecture"
         required: true
@@ -36,7 +33,6 @@ on:
           - arm64
           - arm
 
-      #  Defconfig 
       defconfig:
         description: "Defconfig name (inside arch/<ARCH>/configs/)"
         required: true
@@ -47,7 +43,6 @@ on:
         required: false
         default: ""
 
-      #  Toolchain 
       toolchain:
         description: "Toolchain to use"
         required: true
@@ -79,19 +74,16 @@ on:
           - "true"
           - "false"
 
-      #  GCC cross-compile 
       gcc_repos:
         description: "GCC repo URLs: 'aarch64_repo arm32_repo' space-separated (leave empty for apt gcc)"
         required: false
         default: ""
 
-      #  ccache 
       ccache_size:
         description: "ccache max size (e.g. 4G, 8G)"
         required: false
         default: "5G"
 
-      #  AnyKernel3 
       anykernel_repo:
         description: "AnyKernel3 repo (user/repo or full URL)"
         required: true
@@ -102,7 +94,6 @@ on:
         required: false
         default: "master"
 
-      #  Boot image artifacts 
       include_dtb:
         description: "Include DTB in ZIP"
         required: false
@@ -132,13 +123,11 @@ on:
           - Image.gz-dtb
           - Image-dtb
 
-      #  ZIP / output 
       zip_prefix:
         description: "ZIP filename prefix (e.g. 'Kernel' → Kernel-A32-20250418.zip)"
         required: false
         default: "Kernel"
 
-      #  Release 
       create_release:
         description: "Create a GitHub Release and attach the ZIP"
         required: false
@@ -153,7 +142,6 @@ on:
         required: false
         default: ""
 
-      #  Telegram 
       send_zip_telegram:
         description: "Upload ZIP directly to Telegram chat (≤50 MB)"
         required: false
@@ -163,9 +151,6 @@ on:
           - "true"
           - "false"
 
-# 
-#  RESOLVED ENV — merges workflow_dispatch inputs with push defaults
-# 
 env:
   DEVICE_NAME:      ${{ github.event.inputs.device_name      || 'Samsung Galaxy A32 4G' }}
   DEVICE_CODENAME:  ${{ github.event.inputs.device_codename  || 'SM-A325F' }}
@@ -193,7 +178,6 @@ env:
   RELEASE_TAG:      ${{ github.event.inputs.release_tag      || '' }}
   SEND_ZIP_TG:      ${{ github.event.inputs.send_zip_telegram || 'true' }}
 
-  # Working directories
   KERNEL_DIR:    "kernel_source"
   ANYKERNEL_DIR: "AnyKernel3"
   OUTPUT_DIR:    "out"
@@ -201,7 +185,6 @@ env:
   GCC64_DIR:     "toolchain/gcc64"
   GCC32_DIR:     "toolchain/gcc32"
 
-  # Secrets
   TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
   TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
@@ -213,11 +196,6 @@ jobs:
 
     steps:
 
-    # 
-    #  STAGE 1 — PREPARE ENVIRONMENT
-    # 
-
-    #  1a. Free disk space 
     - name: Free disk space
       run: |
         echo " Disk before cleanup "
@@ -244,7 +222,6 @@ jobs:
         echo " Disk after cleanup "
         df -h /
 
-    #  1b. Install build dependencies 
     - name: Install dependencies
       run: |
         sudo apt-get update -qq
@@ -255,7 +232,6 @@ jobs:
           gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
           binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
 
-    #  1c. Telegram — Build Started 
     - name: Telegram — Build Started
       run: |
         BUILD_TIME=$(date "+%Y-%m-%d %H:%M UTC")
@@ -277,11 +253,6 @@ jobs:
         EOF
         )"
 
-    # 
-    #  STAGE 2 — CHECKOUT SOURCES
-    # 
-
-    #  2a. Kernel source 
     - name: Checkout kernel source
       run: |
         if [[ "${KERNEL_REPO}" == http* ]]; then
@@ -302,7 +273,6 @@ jobs:
         echo "KERNEL_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
         echo " Kernel HEAD: $(git log --oneline -1)"
 
-    #  2b. AnyKernel3 
     - name: Checkout AnyKernel3
       run: |
         if [[ "${ANYKERNEL_REPO}" == http* ]]; then
@@ -318,11 +288,6 @@ jobs:
           "${AK_URL}" \
           "${ANYKERNEL_DIR}"
 
-    # 
-    #  STAGE 3 — TOOLCHAIN SETUP
-    # 
-
-    #  3a. Google Clang 
     - name: Toolchain — Google Clang
       if: env.TOOLCHAIN == 'google-clang'
       run: |
@@ -337,7 +302,6 @@ jobs:
         echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
         "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
 
-    #  3b. Proton Clang 
     - name: Toolchain — Proton Clang
       if: env.TOOLCHAIN == 'proton-clang'
       run: |
@@ -348,7 +312,6 @@ jobs:
         echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
         "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
 
-    #  3c. Neutron Clang 
     - name: Toolchain — Neutron Clang
       if: env.TOOLCHAIN == 'neutron-clang'
       run: |
@@ -363,7 +326,6 @@ jobs:
         echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
         "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
 
-    #  3d. AOSP Clang 
     - name: Toolchain — AOSP Clang
       if: env.TOOLCHAIN == 'aosp-clang'
       run: |
@@ -374,7 +336,6 @@ jobs:
         echo "CC_PREFIX=clang"                             >> $GITHUB_ENV
         "${GITHUB_WORKSPACE}/${CLANG_DIR}/bin/clang" --version
 
-    #  3e. GCC-only (no Clang) 
     - name: Toolchain — GCC only
       if: env.TOOLCHAIN == 'gcc-only'
       run: |
@@ -382,7 +343,6 @@ jobs:
         echo "TC_PATH=/usr/bin"  >> $GITHUB_ENV
         echo "CC_PREFIX=gcc"     >> $GITHUB_ENV
 
-    #  3f. Custom GCC toolchains (optional) 
     - name: Custom GCC toolchains (optional)
       if: env.GCC_REPOS != ''
       run: |
@@ -400,10 +360,6 @@ jobs:
           git clone --depth=1 "${GCC_32_REPO}" "${GCC32_DIR}"
           echo "GCC32_PATH=$GITHUB_WORKSPACE/${GCC32_DIR}/bin" >> $GITHUB_ENV
         fi
-
-    # 
-    #  STAGE 4 — CCACHE
-    # 
 
     - name: Restore ccache
       uses: actions/cache@v4
@@ -424,21 +380,15 @@ jobs:
         echo "CCACHE_COMPRESS=1"          >> $GITHUB_ENV
         echo "CCACHE_COMPRESSLEVEL=6"     >> $GITHUB_ENV
 
-    # 
-    #  STAGE 5 — BUILD
-    # 
-
     - name: Build kernel
       working-directory: ${{ env.KERNEL_DIR }}
       run: |
-        #  Resolve paths 
         CROSS64="${GCC64_PATH:-/usr/bin}/aarch64-linux-gnu-"
         CROSS32="${GCC32_PATH:-/usr/bin}/arm-linux-gnueabi-"
 
         # Add toolchain to PATH
         export PATH="${TC_PATH}:${GCC64_PATH:-/usr/bin}:${GCC32_PATH:-/usr/bin}:${PATH}"
 
-        #  Base make flags 
         MAKE_FLAGS=(
           -j$(nproc --all)
           O="../${OUTPUT_DIR}"
@@ -448,7 +398,6 @@ jobs:
           CROSS_COMPILE_ARM32="${CROSS32}"
         )
 
-        #  LLVM flags (optional) 
         if [[ "${USE_LLVM}" == "true" && "${TOOLCHAIN}" != "gcc-only" ]]; then
           MAKE_FLAGS+=(
             CLANG_TRIPLE="aarch64-linux-gnu-"
@@ -461,11 +410,9 @@ jobs:
         printf '%s\n' "${MAKE_FLAGS[@]}"
         echo ""
 
-        #  Generate defconfig 
         echo " Generating defconfig: ${DEFCONFIG}"
         make "${MAKE_FLAGS[@]}" "${DEFCONFIG}"
 
-        #  Merge extra config fragments 
         if [[ -n "${EXTRA_CONFIGS}" ]]; then
           echo " Merging extra configs: ${EXTRA_CONFIGS}"
           for cfg in ${EXTRA_CONFIGS}; do
@@ -479,7 +426,6 @@ jobs:
           make "${MAKE_FLAGS[@]}" olddefconfig
         fi
 
-        #  Compile 
         echo " Starting compile on $(nproc --all) threads..."
         START_TIME=$(date +%s)
 
@@ -496,10 +442,6 @@ jobs:
         fi
         echo " Build finished in ${ELAPSED}s"
 
-    # 
-    #  STAGE 6 — PACKAGE
-    # 
-
     - name: Package flashable ZIP
       run: |
         TIMESTAMP=$(date "+%Y%m%d-%H%M")
@@ -508,7 +450,6 @@ jobs:
 
         BOOT_DIR="${OUTPUT_DIR}/arch/${ARCH}/boot"
 
-        #  Copy kernel image 
         if [[ -f "${BOOT_DIR}/${IMAGE_NAME}" ]]; then
           cp "${BOOT_DIR}/${IMAGE_NAME}" "${ANYKERNEL_DIR}/"
           echo " Copied ${IMAGE_NAME}"
@@ -518,7 +459,6 @@ jobs:
           exit 1
         fi
 
-        #  Copy DTB (optional) 
         if [[ "${INCLUDE_DTB}" == "true" ]]; then
           mkdir -p "${ANYKERNEL_DIR}/dtb"
           find "${BOOT_DIR}/dts" -name "*.dtb" -exec cp {} "${ANYKERNEL_DIR}/dtb/" \;
@@ -526,7 +466,6 @@ jobs:
           echo " Copied ${DTB_COUNT} DTB file(s)"
         fi
 
-        #  Copy DTBO (optional) 
         if [[ "${INCLUDE_DTBO}" == "true" ]]; then
           if [[ -f "${BOOT_DIR}/dtbo.img" ]]; then
             cp "${BOOT_DIR}/dtbo.img" "${ANYKERNEL_DIR}/"
@@ -536,7 +475,6 @@ jobs:
           fi
         fi
 
-        #  Zip 
         cd "${ANYKERNEL_DIR}"
         zip -r9 "../${ZIP_NAME}" . -x "*.git*" "*.github*" "*.md" "*.txt"
         cd ..
@@ -545,7 +483,6 @@ jobs:
         echo "ZIP_SIZE=${ZIP_SIZE}" >> $GITHUB_ENV
         echo " ZIP: ${ZIP_NAME} (${ZIP_SIZE})"
 
-    #  Upload build log (always, for debugging) 
     - name: Upload build log
       if: always()
       uses: actions/upload-artifact@v4
@@ -554,7 +491,6 @@ jobs:
         path: build.log
         retention-days: 3
 
-    #  Upload ZIP to GitHub Artifacts 
     - name: Upload ZIP to GitHub Artifacts
       if: success()
       uses: actions/upload-artifact@v4
@@ -563,10 +499,6 @@ jobs:
         path: ${{ env.ZIP_NAME }}
         retention-days: ${{ env.ARTIFACT_DAYS }}
 
-    # 
-    #  STAGE 7 — RELEASE (optional)
-    # 
-
     - name: Create GitHub Release
       if: success() && env.CREATE_RELEASE == 'true' && env.RELEASE_TAG != ''
       uses: softprops/action-gh-release@v2
@@ -574,7 +506,6 @@ jobs:
         tag_name: ${{ env.RELEASE_TAG }}
         name: "Kernel ${{ env.RELEASE_TAG }} — ${{ env.DEVICE_NAME }}"
         body: |
-          ##  Kernel Build
 
           | Field       | Value                                          |
           |-------------|------------------------------------------------|
@@ -588,10 +519,6 @@ jobs:
         files: ${{ env.ZIP_NAME }}
         draft: false
         prerelease: false
-
-    # 
-    #  STAGE 8 — TELEGRAM NOTIFICATIONS
-    # 
 
     - name: Telegram — Build Succeeded
       if: success()
@@ -662,10 +589,6 @@ jobs:
          Fix the errors and try again.
         EOF
         )"
-
-    # 
-    #  STAGE 9 — POST
-    # 
 
     - name: ccache stats
       if: always()
