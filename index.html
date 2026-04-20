@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KernelForge — Build Android Kernels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  /* ── CDS Token Layer ─────────────────────────────────────────── */
+  :root {
+    --cds-background:         #ffffff;
+    --cds-layer-01:           #f4f4f4;
+    --cds-layer-02:           #e0e0e0;
+    --cds-text-primary:       #161616;
+    --cds-text-secondary:     #525252;
+    --cds-text-placeholder:   #6f6f6f;
+    --cds-text-disabled:      #8d8d8d;
+    --cds-border-subtle:      #c6c6c6;
+    --cds-border-strong:      #161616;
+    --cds-button-primary:     #0f62fe;
+    --cds-button-primary-hover: #0353e9;
+    --cds-button-primary-active: #002d9c;
+    --cds-button-secondary:   #393939;
+    --cds-button-secondary-hover: #4c4c4c;
+    --cds-button-ghost-hover: #e8e8e8;
+    --cds-link-primary:       #0f62fe;
+    --cds-link-primary-hover: #0043ce;
+    --cds-focus:              #0f62fe;
+    --cds-support-error:      #da1e28;
+    --cds-support-success:    #24a148;
+    --cds-support-warning:    #f1c21b;
+    --cds-nav-bg:             #161616;
+    --cds-nav-text:           #c6c6c6;
+    --cds-footer-bg:          #161616;
+    --cds-tag-bg:             #edf5ff;
+    --cds-tag-text:           #0f62fe;
+  }
+
+  /* ── Reset ───────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; scroll-behavior: smooth; }
+  body {
+    font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+    background: var(--cds-background);
+    color: var(--cds-text-primary);
+    font-weight: 400;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--cds-link-primary); text-decoration: none; }
+  a:hover { color: var(--cds-link-primary-hover); text-decoration: underline; }
+  button { cursor: pointer; font-family: inherit; }
+  input, select, textarea { font-family: 'IBM Plex Mono', Menlo, monospace; }
+
+  /* ── Nav ─────────────────────────────────────────────────────── */
+  .nav {
+    background: var(--cds-nav-bg);
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid #393939;
+  }
+  .nav-left { display: flex; align-items: center; gap: 32px; }
+  .nav-brand {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-brand-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    color: var(--cds-button-primary);
+  }
+  .nav-links { display: flex; gap: 0; }
+  .nav-link {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--cds-nav-text);
+    letter-spacing: 0.16px;
+    padding: 0 16px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid transparent;
+    transition: color 0.1s, border-color 0.1s;
+    text-decoration: none;
+  }
+  .nav-link:hover { color: #ffffff; text-decoration: none; }
+  .nav-link.active { color: #ffffff; border-bottom-color: var(--cds-button-primary); }
+  .nav-right { display: flex; align-items: center; gap: 8px; }
+
+  /* ── Buttons ─────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 48px;
+    padding: 14px 15px;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.16px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--cds-focus);
+    outline-offset: -2px;
+  }
+  .btn-primary {
+    background: var(--cds-button-primary);
+    color: #ffffff;
+  }
+  .btn-primary:hover { background: var(--cds-button-primary-hover); color: #ffffff; text-decoration: none; }
+  .btn-primary:active { background: var(--cds-button-primary-active); }
+  .btn-secondary {
+    background: var(--cds-button-secondary);
+    color: #ffffff;
+  }
+  .btn-secondary:hover { background: var(--cds-button-secondary-hover); color: #ffffff; text-decoration: none; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--cds-button-primary);
+    border-color: transparent;
+  }
+  .btn-ghost:hover { background: var(--cds-button-ghost-hover); color: var(--cds-button-primary); text-decoration: none; }
+  .btn-sm { height: 40px; padding: 10px 15px; font-size: 14px; }
+  .btn-icon { font-size: 18px; line-height: 1; }
+
+  /* ── Form fields ─────────────────────────────────────────────── */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field-label {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--cds-text-secondary);
+    letter-spacing: 0.32px;
+    line-height: 1.33;
+  }
+  .field-label .required { color: var(--cds-support-error); margin-left: 2px; }
+  .field-input {
+    background: var(--cds-layer-01);
+    border: none;
+    border-bottom: 2px solid var(--cds-border-subtle);
+    height: 40px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--cds-text-primary);
+    letter-spacing: 0.16px;
+    width: 100%;
+    border-radius: 0;
+    outline: none;
+    transition: border-color 0.1s;
+  }
+  .field-input::placeholder { color: var(--cds-text-placeholder); }
+  .field-input:focus { border-bottom-color: var(--cds-focus); }
+  .field-input:disabled {
+    color: var(--cds-text-disabled);
+    background: var(--cds-layer-02);
+    cursor: not-allowed;
+  }
+  .field-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23161616' d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+  }
+  .field-helper {
+    font-size: 12px;
+    color: var(--cds-text-secondary);
+    letter-spacing: 0.32px;
+    line-height: 1.33;
+  }
+  .field-error {
+    font-size: 12px;
+    color: var(--cds-support-error);
+    letter-spacing: 0.32px;
+  }
+
+  /* ── Toggle ──────────────────────────────────────────────────── */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--cds-layer-02);
+  }
+  .toggle-label-group { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-label { font-size: 14px; font-weight: 400; color: var(--cds-text-primary); letter-spacing: 0.16px; }
+  .toggle-desc { font-size: 12px; color: var(--cds-text-secondary); letter-spacing: 0.32px; }
+  .toggle {
+    position: relative;
+    width: 48px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: #8d8d8d;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 12px;
+  }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: #ffffff;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.15s;
+  }
+  .toggle input:checked + .toggle-track { background: var(--cds-button-primary); }
+  .toggle input:checked + .toggle-track::after { transform: translateX(24px); }
+
+  /* ── Tag ─────────────────────────────────────────────────────── */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--cds-tag-bg);
+    color: var(--cds-tag-text);
+    font-size: 12px;
+    font-weight: 400;
+    padding: 4px 8px;
+    border-radius: 24px;
+    letter-spacing: 0.32px;
+  }
+  .tag-gray { background: var(--cds-layer-01); color: var(--cds-text-secondary); }
+  .tag-success { background: #defbe6; color: #0e6027; }
+  .tag-error { background: #fff1f1; color: var(--cds-support-error); }
+  .tag-warning { background: #fdf6dd; color: #785600; }
+
+  /* ── Layout ──────────────────────────────────────────────────── */
+  .container { max-width: 1312px; margin: 0 auto; padding: 0 16px; }
+  .grid { display: grid; gap: 1px; background: var(--cds-layer-02); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Hero ────────────────────────────────────────────────────── */
+  .hero {
+    background: var(--cds-nav-bg);
+    padding: 80px 0 64px;
+    border-bottom: 1px solid #393939;
+  }
+  .hero-inner { max-width: 1312px; margin: 0 auto; padding: 0 16px; }
+  .hero-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--cds-button-primary);
+    letter-spacing: 0.32px;
+    margin-bottom: 16px;
+  }
+  .hero-title {
+    font-size: clamp(2rem, 5vw, 3.75rem);
+    font-weight: 300;
+    color: #ffffff;
+    line-height: 1.17;
+    max-width: 800px;
+    margin-bottom: 24px;
+  }
+  .hero-title span { color: var(--cds-button-primary); }
+  .hero-subtitle {
+    font-size: 16px;
+    font-weight: 400;
+    color: #c6c6c6;
+    line-height: 1.5;
+    max-width: 560px;
+    margin-bottom: 40px;
+  }
+  .hero-actions { display: flex; gap: 0; flex-wrap: wrap; }
+  .hero-meta {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid #393939;
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+  }
+  .hero-stat-label {
+    font-size: 12px;
+    color: #6f6f6f;
+    letter-spacing: 0.32px;
+    margin-bottom: 4px;
+  }
+  .hero-stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 24px;
+    color: #ffffff;
+    font-weight: 400;
+  }
+
+  /* ── Section ─────────────────────────────────────────────────── */
+  .section { padding: 48px 0; }
+  .section-gray { background: var(--cds-layer-01); }
+  .section-title {
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--cds-text-primary);
+    line-height: 1.25;
+    margin-bottom: 8px;
+  }
+  .section-subtitle {
+    font-size: 16px;
+    color: var(--cds-text-secondary);
+    line-height: 1.5;
+    margin-bottom: 32px;
+    max-width: 640px;
+  }
+
+  /* ── Cards / Tiles ───────────────────────────────────────────── */
+  .tile {
+    background: var(--cds-background);
+    padding: 16px;
+    border-bottom: 1px solid var(--cds-layer-02);
+    transition: background 0.1s;
+  }
+  .tile:hover { background: #e8e8e8; }
+  .tile-gray { background: var(--cds-layer-01); }
+  .tile-gray:hover { background: #e8e8e8; }
+  .tile-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+  .tile-body {
+    font-size: 14px;
+    color: var(--cds-text-secondary);
+    line-height: 1.29;
+    letter-spacing: 0.16px;
+  }
+
+  /* ── Notification / Inline notification ──────────────────────── */
+  .notification {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-left: 3px solid;
+    background: var(--cds-layer-01);
+    margin-bottom: 16px;
+  }
+  .notification-info { border-color: var(--cds-button-primary); }
+  .notification-success { border-color: var(--cds-support-success); }
+  .notification-error { border-color: var(--cds-support-error); }
+  .notification-warning { border-color: var(--cds-support-warning); }
+  .notification-title { font-size: 14px; font-weight: 600; letter-spacing: 0.16px; }
+  .notification-body { font-size: 14px; color: var(--cds-text-secondary); letter-spacing: 0.16px; }
+
+  /* ── Progress / Steps ────────────────────────────────────────── */
+  .steps { display: flex; gap: 0; overflow: hidden; }
+  .step {
+    flex: 1;
+    padding: 16px;
+    background: var(--cds-layer-01);
+    border-right: 1px solid var(--cds-layer-02);
+    position: relative;
+  }
+  .step:last-child { border-right: none; }
+  .step.active { background: var(--cds-background); border-bottom: 2px solid var(--cds-button-primary); }
+  .step.done { background: var(--cds-layer-01); border-bottom: 2px solid var(--cds-support-success); }
+  .step-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--cds-text-placeholder);
+    letter-spacing: 0.32px;
+    margin-bottom: 4px;
+  }
+  .step.active .step-num { color: var(--cds-button-primary); }
+  .step.done .step-num { color: var(--cds-support-success); }
+  .step-label { font-size: 14px; font-weight: 600; color: var(--cds-text-primary); letter-spacing: 0.16px; }
+
+  /* ── Log output ──────────────────────────────────────────────── */
+  .log-panel {
+    background: #161616;
+    border: 1px solid #393939;
+    padding: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: #c6c6c6;
+    line-height: 1.6;
+    min-height: 200px;
+    max-height: 320px;
+    overflow-y: auto;
+    letter-spacing: 0.16px;
+  }
+  .log-line { display: flex; gap: 12px; }
+  .log-time { color: #6f6f6f; flex-shrink: 0; }
+  .log-info { color: #78a9ff; }
+  .log-success { color: #42be65; }
+  .log-error { color: #ff8389; }
+  .log-warn { color: #f1c21b; }
+  .log-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background: var(--cds-button-primary);
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── Divider ─────────────────────────────────────────────────── */
+  .divider { border: none; border-top: 1px solid var(--cds-layer-02); margin: 0; }
+
+  /* ── Tabs ────────────────────────────────────────────────────── */
+  .tabs { display: flex; border-bottom: 1px solid var(--cds-layer-02); }
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--cds-text-secondary);
+    letter-spacing: 0.16px;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { color: var(--cds-text-primary); }
+  .tab-btn.active { color: var(--cds-text-primary); border-bottom-color: var(--cds-button-primary); }
+  .tab-panel { display: none; padding: 24px 0; }
+  .tab-panel.active { display: block; }
+
+  /* ── Breadcrumb ──────────────────────────────────────────────── */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--cds-text-secondary);
+    letter-spacing: 0.16px;
+    padding: 12px 0;
+  }
+  .breadcrumb-sep { color: var(--cds-border-subtle); }
+  .breadcrumb a { color: var(--cds-link-primary); }
+
+  /* ── Overflow menu ───────────────────────────────────────────── */
+  .overflow-menu {
+    position: relative;
+    display: inline-block;
+  }
+  .overflow-list {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    min-width: 160px;
+    z-index: 50;
+  }
+  .overflow-menu:focus-within .overflow-list,
+  .overflow-menu.open .overflow-list { display: block; }
+  .overflow-item {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 14px;
+    color: var(--cds-text-primary);
+    letter-spacing: 0.16px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .overflow-item:hover { background: var(--cds-layer-01); }
+  .overflow-item.danger { color: var(--cds-support-error); }
+
+  /* ── Table ───────────────────────────────────────────────────── */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    background: var(--cds-layer-01);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+    letter-spacing: 0.32px;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cds-border-subtle);
+  }
+  .data-table td {
+    font-size: 14px;
+    color: var(--cds-text-primary);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cds-layer-02);
+    letter-spacing: 0.16px;
+  }
+  .data-table tr:hover td { background: #e8e8e8; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── Modal ───────────────────────────────────────────────────── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(22,22,22,0.5);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--cds-background);
+    max-width: 640px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .modal-header {
+    background: var(--cds-layer-01);
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--cds-layer-02);
+  }
+  .modal-title { font-size: 20px; font-weight: 600; line-height: 1.4; }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--cds-text-secondary);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--cds-text-primary); }
+  .modal-body { padding: 24px 16px; }
+  .modal-footer {
+    padding: 16px;
+    border-top: 1px solid var(--cds-layer-02);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0;
+  }
+
+  /* ── Footer ──────────────────────────────────────────────────── */
+  .footer {
+    background: var(--cds-footer-bg);
+    padding: 48px 0 32px;
+    margin-top: 80px;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 32px;
+    max-width: 1312px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+  .footer-brand {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.16px;
+    margin-bottom: 12px;
+  }
+  .footer-desc { font-size: 14px; color: #8d8d8d; line-height: 1.5; letter-spacing: 0.16px; }
+  .footer-heading { font-size: 12px; font-weight: 600; color: #8d8d8d; letter-spacing: 0.32px; margin-bottom: 16px; text-transform: uppercase; }
+  .footer-link {
+    display: block;
+    font-size: 14px;
+    color: #c6c6c6;
+    letter-spacing: 0.16px;
+    margin-bottom: 12px;
+    text-decoration: none;
+  }
+  .footer-link:hover { color: #ffffff; text-decoration: underline; }
+  .footer-bottom {
+    border-top: 1px solid #393939;
+    margin-top: 32px;
+    padding-top: 24px;
+    max-width: 1312px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 16px;
+    padding-right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .footer-copy { font-size: 12px; color: #6f6f6f; letter-spacing: 0.32px; }
+
+  /* ── Auth gate ───────────────────────────────────────────────── */
+  #auth-gate {
+    min-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    background: var(--cds-background);
+  }
+  .auth-card {
+    background: var(--cds-layer-01);
+    padding: 40px;
+    max-width: 480px;
+    width: 100%;
+  }
+  .auth-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--cds-button-primary);
+    letter-spacing: 0.32px;
+    margin-bottom: 16px;
+  }
+  .auth-title { font-size: 32px; font-weight: 300; line-height: 1.25; margin-bottom: 12px; }
+  .auth-body { font-size: 14px; color: var(--cds-text-secondary); letter-spacing: 0.16px; line-height: 1.5; margin-bottom: 32px; }
+  .auth-features { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .auth-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--cds-text-secondary);
+    letter-spacing: 0.16px;
+  }
+  .auth-feature-icon {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--cds-button-primary);
+    width: 20px;
+    flex-shrink: 0;
+  }
+  .auth-divider {
+    border-top: 1px solid var(--cds-layer-02);
+    margin: 24px 0;
+  }
+  .auth-note { font-size: 12px; color: var(--cds-text-placeholder); letter-spacing: 0.32px; line-height: 1.5; }
+
+  /* ── App shell (hidden until auth) ──────────────────────────── */
+  #app-shell { display: none; }
+
+  /* ── Build form ──────────────────────────────────────────────── */
+  .form-section { margin-bottom: 32px; }
+  .form-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--cds-text-secondary);
+    letter-spacing: 0.32px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cds-layer-02);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-full { grid-column: 1 / -1; }
+
+  /* ── Build history ───────────────────────────────────────────── */
+  .build-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 160px 120px 120px 80px;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cds-layer-02);
+    font-size: 14px;
+    letter-spacing: 0.16px;
+    transition: background 0.1s;
+  }
+  .build-row:hover { background: #e8e8e8; }
+  .build-row-header {
+    background: var(--cds-layer-01);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.32px;
+    color: var(--cds-text-secondary);
+    border-bottom: 1px solid var(--cds-border-subtle);
+  }
+  .build-row-header:hover { background: var(--cds-layer-01); }
+
+  /* ── Progress bar ────────────────────────────────────────────── */
+  .progress-bar { height: 4px; background: var(--cds-layer-02); overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--cds-button-primary); transition: width 0.5s ease; }
+  .progress-fill.complete { background: var(--cds-support-success); }
+  .progress-fill.error { background: var(--cds-support-error); }
+
+  /* ── User avatar ─────────────────────────────────────────────── */
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--cds-button-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ── Utilities ───────────────────────────────────────────────── */
+  .text-secondary { color: var(--cds-text-secondary); }
+  .text-mono { font-family: 'IBM Plex Mono', monospace; }
+  .text-sm { font-size: 12px; letter-spacing: 0.32px; }
+  .mt-8 { margin-top: 8px; }
+  .mt-16 { margin-top: 16px; }
+  .mt-24 { margin-top: 24px; }
+  .mt-32 { margin-top: 32px; }
+  .mb-8 { margin-bottom: 8px; }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+  .mb-32 { margin-bottom: 32px; }
+  .flex { display: flex; }
+  .flex-center { display: flex; align-items: center; }
+  .gap-8 { gap: 8px; }
+  .gap-16 { gap: 16px; }
+  .gap-24 { gap: 24px; }
+  .w-full { width: 100%; }
+  .hidden { display: none !important; }
+
+  /* ── Responsive ──────────────────────────────────────────────── */
+  @media (max-width: 1056px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .build-row { grid-template-columns: 80px 1fr 120px 80px; }
+    .build-row > :nth-child(4),
+    .build-row > :nth-child(5) { display: none; }
+  }
+  @media (max-width: 672px) {
+    .hero { padding: 48px 0 32px; }
+    .hero-meta { gap: 24px; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .steps { flex-wrap: wrap; }
+    .nav-links { display: none; }
+    .build-row { grid-template-columns: 1fr 80px; font-size: 13px; }
+    .build-row > *:not(:nth-child(2)):not(:last-child) { display: none; }
+    .build-row-header { display: none; }
+  }
+
+  /* ── Animations ──────────────────────────────────────────────── */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.2s ease forwards; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+  }
+  .spinner-blue {
+    border-color: rgba(15,98,254,0.2);
+    border-top-color: var(--cds-button-primary);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     AUTH GATE
+════════════════════════════════════════════════════════════════ -->
+<div id="auth-gate">
+  <div class="auth-card fade-in">
+    <div class="auth-eyebrow">// kernel build platform</div>
+    <h1 class="auth-title">KernelForge</h1>
+    <p class="auth-body">
+      Build Android kernels in the cloud. Connect your GitHub account to fork repositories, configure toolchains, and dispatch builds — all from one interface.
+    </p>
+
+    <div class="auth-features">
+      <div class="auth-feature">
+        <span class="auth-feature-icon">01</span>
+        <span>Authenticate with GitHub OAuth</span>
+      </div>
+      <div class="auth-feature">
+        <span class="auth-feature-icon">02</span>
+        <span>Fork any kernel repository to your account</span>
+      </div>
+      <div class="auth-feature">
+        <span class="auth-feature-icon">03</span>
+        <span>Configure toolchain, defconfig, and outputs</span>
+      </div>
+      <div class="auth-feature">
+        <span class="auth-feature-icon">04</span>
+        <span>Dispatch GitHub Actions build and monitor logs</span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary w-full" onclick="simulateLogin()" style="justify-content:center;font-size:15px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Continue with GitHub
+    </button>
+
+    <div class="auth-divider"></div>
+    <p class="auth-note">
+      KernelForge uses GitHub OAuth to read your repositories and dispatch Actions workflows on your behalf. No code is stored on our servers — builds run in your own GitHub Actions environment.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     APP SHELL (shown after login)
+════════════════════════════════════════════════════════════════ -->
+<div id="app-shell">
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-brand">
+        <span class="nav-brand-mono">KF</span>
+        KernelForge
+      </div>
+      <div class="nav-links">
+        <a href="#" class="nav-link active" onclick="showView('dashboard',this)">Dashboard</a>
+        <a href="#" class="nav-link" onclick="showView('builds',this)">Builds</a>
+        <a href="#" class="nav-link" onclick="showView('repos',this)">Repositories</a>
+        <a href="#" class="nav-link" onclick="showView('settings',this)">Settings</a>
+      </div>
+    </div>
+    <div class="nav-right">
+      <span id="nav-username" class="text-sm text-secondary text-mono"></span>
+      <div class="overflow-menu" id="user-menu">
+        <button class="btn btn-ghost btn-sm" onclick="toggleMenu()" style="padding:0 8px;height:40px;">
+          <div class="avatar" id="nav-avatar">U</div>
+        </button>
+        <div class="overflow-list">
+          <button class="overflow-item" onclick="showView('settings')">Settings</button>
+          <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0;">
+          <button class="overflow-item danger" onclick="logout()">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── VIEW: Dashboard ───────────────────────────────────────── -->
+  <div id="view-dashboard" class="fade-in">
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-inner">
+        <div class="hero-eyebrow">// welcome back, <span id="hero-username"></span></div>
+        <h1 class="hero-title">Build Android kernels<br>from <span>source to ZIP</span></h1>
+        <p class="hero-subtitle">Fork a kernel repository, configure your toolchain and defconfig, then dispatch a GitHub Actions build — all without leaving this page.</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" onclick="showView('new-build'); setActiveNav('builds');">
+            New Build
+            <span style="font-size:18px;line-height:1;">+</span>
+          </button>
+          <button class="btn btn-secondary" onclick="showView('repos'); setActiveNav('repos');">
+            Fork Repository
+          </button>
+        </div>
+        <div class="hero-meta">
+          <div>
+            <div class="hero-stat-label">Total Builds</div>
+            <div class="hero-stat-value" id="stat-total">12</div>
+          </div>
+          <div>
+            <div class="hero-stat-label">Succeeded</div>
+            <div class="hero-stat-value" id="stat-ok" style="color:#42be65;">9</div>
+          </div>
+          <div>
+            <div class="hero-stat-label">Failed</div>
+            <div class="hero-stat-value" id="stat-fail" style="color:#ff8389;">2</div>
+          </div>
+          <div>
+            <div class="hero-stat-label">Avg Duration</div>
+            <div class="hero-stat-value">18m</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent builds -->
+    <div class="section">
+      <div class="container">
+        <h2 class="section-title">Recent builds</h2>
+        <p class="section-subtitle">The last 5 builds across all repositories.</p>
+
+        <div style="border:1px solid var(--cds-layer-02);">
+          <div class="build-row build-row-header">
+            <div>#</div>
+            <div>Repository / Defconfig</div>
+            <div>Toolchain</div>
+            <div>Status</div>
+            <div>Duration</div>
+            <div></div>
+          </div>
+          <div id="recent-builds-list"></div>
+        </div>
+
+        <div class="mt-16">
+          <button class="btn btn-ghost btn-sm" onclick="showView('builds'); setActiveNav('builds');">View all builds &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature tiles -->
+    <div class="section section-gray">
+      <div class="container">
+        <div class="grid grid-3" style="border:1px solid var(--cds-layer-02);">
+          <div class="tile tile-gray" style="padding:24px;">
+            <div class="text-mono text-secondary text-sm mb-8">01</div>
+            <div class="tile-title">5 toolchains</div>
+            <div class="tile-body mt-8">Google Clang, Proton Clang, Neutron Clang, AOSP Clang, GCC-only. Switch per build with no configuration changes.</div>
+          </div>
+          <div class="tile tile-gray" style="padding:24px;">
+            <div class="text-mono text-secondary text-sm mb-8">02</div>
+            <div class="tile-title">ccache acceleration</div>
+            <div class="tile-body mt-8">Per-device, per-toolchain cache automatically restored between runs. Typical incremental build: under 5 minutes.</div>
+          </div>
+          <div class="tile tile-gray" style="padding:24px;">
+            <div class="text-mono text-secondary text-sm mb-8">03</div>
+            <div class="tile-title">Telegram delivery</div>
+            <div class="tile-body mt-8">Build status and the final ZIP are pushed to your Telegram channel. Files under 50 MB upload directly; larger files receive a download link.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: Fork Repositories ───────────────────────────────── -->
+  <div id="view-repos" class="hidden fade-in">
+    <div class="section">
+      <div class="container">
+        <div class="breadcrumb">
+          <a href="#" onclick="showView('dashboard')">Dashboard</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>Repositories</span>
+        </div>
+        <h2 class="section-title">Fork a kernel repository</h2>
+        <p class="section-subtitle">Search public kernel repositories and fork them to your GitHub account. The workflow file will be added automatically.</p>
+
+        <div class="notification notification-info mb-24">
+          <div>
+            <div class="notification-title">Workflow injection</div>
+            <div class="notification-body">When you fork a repository, KernelForge automatically adds <span class="text-mono">.github/workflows/build.yml</span> to the fork. Your secrets (TELEGRAM_TOKEN, TELEGRAM_CHAT_ID) must be added separately in the repository settings.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:0;margin-bottom:24px;">
+          <input class="field-input" id="repo-search" placeholder="Search: user/repo or keywords..." style="flex:1;" oninput="filterRepos(this.value)">
+          <button class="btn btn-primary" onclick="filterRepos(document.getElementById('repo-search').value)">Search</button>
+        </div>
+
+        <div id="repo-list" style="border:1px solid var(--cds-layer-02);"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: New Build ───────────────────────────────────────── -->
+  <div id="view-new-build" class="hidden fade-in">
+    <div class="section">
+      <div class="container" style="max-width:800px;">
+        <div class="breadcrumb">
+          <a href="#" onclick="showView('dashboard')">Dashboard</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="#" onclick="showView('builds')">Builds</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>New Build</span>
+        </div>
+        <h2 class="section-title">Configure build</h2>
+        <p class="section-subtitle">Fill in the parameters. These map directly to the workflow_dispatch inputs.</p>
+
+        <!-- Steps indicator -->
+        <div class="steps mb-32" id="build-steps">
+          <div class="step active" id="step-1"><div class="step-num">01</div><div class="step-label">Device</div></div>
+          <div class="step" id="step-2"><div class="step-num">02</div><div class="step-label">Source</div></div>
+          <div class="step" id="step-3"><div class="step-num">03</div><div class="step-label">Toolchain</div></div>
+          <div class="step" id="step-4"><div class="step-num">04</div><div class="step-label">Output</div></div>
+          <div class="step" id="step-5"><div class="step-num">05</div><div class="step-label">Dispatch</div></div>
+        </div>
+
+        <!-- Step 1: Device -->
+        <div id="build-step-1" class="fade-in">
+          <div class="form-section">
+            <div class="form-section-title">// device</div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label">Device name <span class="required">*</span></label>
+                <input class="field-input" id="b-device-name" value="Samsung Galaxy A32 4G" placeholder="e.g. Samsung Galaxy A32 4G">
+              </div>
+              <div class="field">
+                <label class="field-label">Device codename <span class="required">*</span></label>
+                <input class="field-input" id="b-device-codename" value="SM-A325F" placeholder="e.g. SM-A325F">
+                <div class="field-helper">Used in the ZIP filename.</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:0;">
+            <button class="btn btn-primary" onclick="nextStep(2)">Next &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Source -->
+        <div id="build-step-2" class="hidden fade-in">
+          <div class="form-section">
+            <div class="form-section-title">// kernel source</div>
+            <div class="form-grid">
+              <div class="field form-full">
+                <label class="field-label">Kernel repository <span class="required">*</span></label>
+                <select class="field-input field-select" id="b-kernel-repo">
+                  <option value="">-- select a forked repository --</option>
+                </select>
+                <div class="field-helper">Only repositories forked via KernelForge are listed.</div>
+              </div>
+              <div class="field">
+                <label class="field-label">Branch <span class="required">*</span></label>
+                <input class="field-input" id="b-kernel-branch" value="main">
+              </div>
+              <div class="field">
+                <label class="field-label">Architecture <span class="required">*</span></label>
+                <select class="field-input field-select" id="b-arch">
+                  <option value="arm64">arm64</option>
+                  <option value="arm">arm</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Defconfig <span class="required">*</span></label>
+                <input class="field-input" id="b-defconfig" value="a32_defconfig" placeholder="e.g. a32_defconfig">
+              </div>
+              <div class="field">
+                <label class="field-label">Extra config fragments</label>
+                <input class="field-input" id="b-extra-configs" placeholder="vendor/debugfs.config ...">
+                <div class="field-helper">Space-separated, relative to kernel root.</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:0;">
+            <button class="btn btn-ghost" onclick="nextStep(1)">&larr; Back</button>
+            <button class="btn btn-primary" onclick="nextStep(3)">Next &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Toolchain -->
+        <div id="build-step-3" class="hidden fade-in">
+          <div class="form-section">
+            <div class="form-section-title">// toolchain</div>
+            <div class="form-grid">
+              <div class="field form-full">
+                <label class="field-label">Toolchain <span class="required">*</span></label>
+                <select class="field-input field-select" id="b-toolchain" onchange="updateToolchainFields()">
+                  <option value="google-clang">google-clang</option>
+                  <option value="proton-clang">proton-clang</option>
+                  <option value="neutron-clang">neutron-clang</option>
+                  <option value="aosp-clang">aosp-clang</option>
+                  <option value="gcc-only">gcc-only</option>
+                </select>
+              </div>
+              <div class="field" id="field-clang-version">
+                <label class="field-label">Google Clang version tag</label>
+                <input class="field-input" id="b-clang-version" value="r522817">
+                <div class="field-helper">Only for google-clang.</div>
+              </div>
+              <div class="field" id="field-custom-clang">
+                <label class="field-label">Custom Clang repo URL</label>
+                <input class="field-input" id="b-custom-clang-repo" placeholder="https://github.com/...">
+                <div class="field-helper">Leave empty to auto-resolve.</div>
+              </div>
+              <div class="field form-full">
+                <label class="field-label">GCC repos</label>
+                <input class="field-input" id="b-gcc-repos" placeholder="https://github.com/aarch64_repo https://github.com/arm32_repo">
+                <div class="field-helper">Two URLs space-separated. Leave empty to use apt GCC.</div>
+              </div>
+              <div class="field">
+                <label class="field-label">ccache size</label>
+                <input class="field-input" id="b-ccache-size" value="5G">
+              </div>
+            </div>
+
+            <div class="mt-16">
+              <div class="toggle-row">
+                <div class="toggle-label-group">
+                  <div class="toggle-label">Use LLVM linker</div>
+                  <div class="toggle-desc">Pass LLVM=1 LLVM_IAS=1. Disable only for older kernels.</div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="b-use-llvm" checked>
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:0;">
+            <button class="btn btn-ghost" onclick="nextStep(2)">&larr; Back</button>
+            <button class="btn btn-primary" onclick="nextStep(4)">Next &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Output -->
+        <div id="build-step-4" class="hidden fade-in">
+          <div class="form-section">
+            <div class="form-section-title">// anykernel3</div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label">AnyKernel3 repo <span class="required">*</span></label>
+                <input class="field-input" id="b-anykernel-repo" value="osm0sis/AnyKernel3">
+              </div>
+              <div class="field">
+                <label class="field-label">AnyKernel3 branch</label>
+                <input class="field-input" id="b-anykernel-branch" value="master">
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">// output</div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label">Kernel image</label>
+                <select class="field-input field-select" id="b-image-name">
+                  <option>Image</option>
+                  <option>Image.gz</option>
+                  <option>Image.gz-dtb</option>
+                  <option>Image-dtb</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">ZIP prefix</label>
+                <input class="field-input" id="b-zip-prefix" value="Kernel">
+              </div>
+            </div>
+            <div class="mt-16">
+              <div class="toggle-row">
+                <div class="toggle-label-group">
+                  <div class="toggle-label">Include DTB</div>
+                  <div class="toggle-desc">Copy .dtb files into the flashable ZIP.</div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="b-include-dtb">
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-label-group">
+                  <div class="toggle-label">Include DTBO</div>
+                  <div class="toggle-desc">Copy dtbo.img into the flashable ZIP.</div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="b-include-dtbo">
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-label-group">
+                  <div class="toggle-label">Send ZIP to Telegram</div>
+                  <div class="toggle-desc">Upload directly if under 50 MB, otherwise send a link.</div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="b-send-tg" checked>
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">// release (optional)</div>
+            <div class="mt-16">
+              <div class="toggle-row">
+                <div class="toggle-label-group">
+                  <div class="toggle-label">Create GitHub Release</div>
+                  <div class="toggle-desc">Attach the ZIP to a tagged release.</div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="b-create-release" onchange="toggleReleaseTag()">
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+            <div class="field mt-16 hidden" id="field-release-tag">
+              <label class="field-label">Release tag</label>
+              <input class="field-input" id="b-release-tag" placeholder="e.g. v1.0.0">
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;gap:0;">
+            <button class="btn btn-ghost" onclick="nextStep(3)">&larr; Back</button>
+            <button class="btn btn-primary" onclick="nextStep(5)">Review &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 5: Review & Dispatch -->
+        <div id="build-step-5" class="hidden fade-in">
+          <div class="form-section">
+            <div class="form-section-title">// review</div>
+            <div id="review-summary" style="background:var(--cds-layer-01);padding:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.8;color:var(--cds-text-secondary);letter-spacing:0.16px;"></div>
+          </div>
+
+          <div id="dispatch-notification" class="hidden"></div>
+
+          <div id="dispatch-log" class="hidden">
+            <div class="form-section-title" style="margin-top:24px;">// live log</div>
+            <div class="log-panel" id="log-output"></div>
+            <div class="progress-bar mt-16">
+              <div class="progress-fill" id="build-progress" style="width:0%"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+              <span class="text-sm text-secondary text-mono" id="build-status-text">Initializing...</span>
+              <span class="text-sm text-secondary text-mono" id="build-elapsed">0s</span>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;gap:0;margin-top:24px;" id="dispatch-actions">
+            <button class="btn btn-ghost" onclick="nextStep(4)">&larr; Back</button>
+            <button class="btn btn-primary" id="dispatch-btn" onclick="dispatchBuild()">
+              Dispatch build
+              <span style="font-family:'IBM Plex Mono';font-size:12px;opacity:0.7;">&#9654;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: All Builds ──────────────────────────────────────── -->
+  <div id="view-builds" class="hidden fade-in">
+    <div class="section">
+      <div class="container">
+        <div class="breadcrumb">
+          <a href="#" onclick="showView('dashboard')">Dashboard</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>Builds</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:32px;">
+          <div>
+            <h2 class="section-title">Build history</h2>
+            <p class="section-subtitle" style="margin-bottom:0;">All dispatched builds across your forked repositories.</p>
+          </div>
+          <button class="btn btn-primary" onclick="showView('new-build'); setActiveNav('builds');">New Build</button>
+        </div>
+
+        <div style="border:1px solid var(--cds-layer-02);">
+          <div class="build-row build-row-header">
+            <div>#</div>
+            <div>Repository / Defconfig</div>
+            <div>Toolchain</div>
+            <div>Status</div>
+            <div>Duration</div>
+            <div></div>
+          </div>
+          <div id="all-builds-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: Settings ────────────────────────────────────────── -->
+  <div id="view-settings" class="hidden fade-in">
+    <div class="section">
+      <div class="container" style="max-width:800px;">
+        <div class="breadcrumb">
+          <a href="#" onclick="showView('dashboard')">Dashboard</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>Settings</span>
+        </div>
+        <h2 class="section-title">Settings</h2>
+        <p class="section-subtitle">Account and notification configuration.</p>
+
+        <div class="tabs mb-24">
+          <button class="tab-btn active" onclick="switchTab('tab-account',this)">Account</button>
+          <button class="tab-btn" onclick="switchTab('tab-telegram',this)">Telegram</button>
+          <button class="tab-btn" onclick="switchTab('tab-defaults',this)">Build defaults</button>
+        </div>
+
+        <div id="tab-account" class="tab-panel active">
+          <div class="form-section">
+            <div class="form-section-title">// github account</div>
+            <div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--cds-layer-01);margin-bottom:16px;">
+              <div class="avatar" id="settings-avatar" style="width:48px;height:48px;font-size:18px;"></div>
+              <div>
+                <div style="font-size:16px;font-weight:600;" id="settings-name"></div>
+                <div class="text-secondary text-sm text-mono" id="settings-login"></div>
+              </div>
+              <div class="tag tag-success" style="margin-left:auto;">Connected</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="logout()">Disconnect account</button>
+          </div>
+        </div>
+
+        <div id="tab-telegram" class="tab-panel">
+          <div class="form-section">
+            <div class="form-section-title">// telegram notifications</div>
+            <div class="notification notification-info mb-16">
+              <div>
+                <div class="notification-title">Where to add secrets</div>
+                <div class="notification-body">Secrets are stored per-repository in GitHub, not here. Go to your forked repo &rarr; Settings &rarr; Secrets and variables &rarr; Actions.</div>
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label">TELEGRAM_TOKEN</label>
+                <input class="field-input" type="password" placeholder="Set in GitHub repo secrets" disabled>
+                <div class="field-helper">Obtained from @BotFather.</div>
+              </div>
+              <div class="field">
+                <label class="field-label">TELEGRAM_CHAT_ID</label>
+                <input class="field-input" type="password" placeholder="Set in GitHub repo secrets" disabled>
+                <div class="field-helper">Your group or channel ID.</div>
+              </div>
+            </div>
+            <a href="https://github.com" target="_blank" class="btn btn-secondary btn-sm mt-16" style="display:inline-flex;">
+              Open GitHub Secrets &rarr;
+            </a>
+          </div>
+        </div>
+
+        <div id="tab-defaults" class="tab-panel">
+          <div class="form-section">
+            <div class="form-section-title">// default build values</div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="field-label">Default toolchain</label>
+                <select class="field-input field-select">
+                  <option>google-clang</option>
+                  <option>proton-clang</option>
+                  <option>neutron-clang</option>
+                  <option>aosp-clang</option>
+                  <option>gcc-only</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Default arch</label>
+                <select class="field-input field-select">
+                  <option>arm64</option>
+                  <option>arm</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label">Default ccache size</label>
+                <input class="field-input" value="5G">
+              </div>
+              <div class="field">
+                <label class="field-label">Default image</label>
+                <select class="field-input field-select">
+                  <option>Image</option>
+                  <option>Image.gz</option>
+                  <option>Image.gz-dtb</option>
+                  <option>Image-dtb</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary mt-24">Save defaults</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /#app-shell -->
+
+<!-- ── FORK MODAL ────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="fork-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="fork-modal-title">Fork repository</div>
+        <div class="text-secondary text-sm text-mono mt-8" id="fork-modal-repo"></div>
+      </div>
+      <button class="modal-close" onclick="closeForkModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="notification notification-info mb-16">
+        <div>
+          <div class="notification-body">The build workflow (<span class="text-mono">build.yml</span>) will be automatically added to the forked repository.</div>
+        </div>
+      </div>
+      <div class="field mb-16">
+        <label class="field-label">Fork destination</label>
+        <input class="field-input" id="fork-owner" readonly>
+        <div class="field-helper">Will be forked under your GitHub account.</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Fork name</label>
+        <input class="field-input" id="fork-name">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeForkModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doFork()" id="fork-confirm-btn">Fork &amp; inject workflow</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BUILD COMPLETE MODAL ──────────────────────────────────── -->
+<div class="modal-backdrop" id="build-done-modal">
+  <div class="modal">
+    <div class="modal-header" style="background:#f4f4f4;">
+      <div class="modal-title" id="build-done-title">Build complete</div>
+      <button class="modal-close" onclick="document.getElementById('build-done-modal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="build-done-content"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('build-done-modal').classList.remove('open')">Close</button>
+      <button class="btn btn-primary" onclick="showView('builds'); document.getElementById('build-done-modal').classList.remove('open');">View all builds</button>
+    </div>
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────
+const state = {
+  user: null,
+  forkedRepos: [],
+  builds: [],
+  currentBuildStep: 1,
+  activeBuild: null,
+};
+
+// ── Sample data ───────────────────────────────────────────────────
+const SAMPLE_REPOS = [
+  { id:1, full_name:'torvalds/linux', description:'Linux kernel source', stars:180000, lang:'C' },
+  { id:2, full_name:'CruelKernel/samsung-m51', description:'Custom kernel for Samsung M51', stars:312, lang:'C' },
+  { id:3, full_name:'ianmacd/G975F', description:'Samsung Galaxy S10 kernel', stars:198, lang:'C' },
+  { id:4, full_name:'kdrag0n/proton_kernel_google_msm4.14', description:'Proton kernel for Pixel', stars:891, lang:'C' },
+  { id:5, full_name:'LineageOS/android_kernel_samsung_exynos9820', description:'LineageOS kernel for Exynos 9820', stars:543, lang:'C' },
+];
+
+const SAMPLE_BUILDS = [
+  { id:12, repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'google-clang', status:'success', duration:'18m 42s', sha:'a1b2c3d4' },
+  { id:11, repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'neutron-clang', status:'success', duration:'14m 11s', sha:'e5f6a7b8' },
+  { id:10, repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'proton-clang', status:'failure', duration:'7m 03s', sha:'c9d0e1f2' },
+  { id:9,  repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'google-clang', status:'success', duration:'21m 55s', sha:'b3c4d5e6' },
+  { id:8,  repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'aosp-clang',   status:'failure', duration:'5m 22s', sha:'f7a8b9c0' },
+  { id:7,  repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'gcc-only',     status:'success', duration:'32m 10s', sha:'d1e2f3a4' },
+  { id:6,  repo:'my-fork/android_kernel_samsung_a32', defconfig:'a32_defconfig', toolchain:'google-clang', status:'success', duration:'17m 48s', sha:'b5c6d7e8' },
+];
+
+// ── Auth ──────────────────────────────────────────────────────────
+function simulateLogin() {
+  const btn = event.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Authenticating...';
+
+  setTimeout(() => {
+    state.user = {
+      login: 'kernel-dev',
+      name: 'Kernel Dev',
+      avatar: null,
+    };
+    state.forkedRepos = [
+      { full_name: 'kernel-dev/android_kernel_samsung_a32', upstream: 'LineageOS/android_kernel_samsung_a32' },
+    ];
+    state.builds = [...SAMPLE_BUILDS];
+
+    document.getElementById('auth-gate').style.display = 'none';
+    document.getElementById('app-shell').style.display = 'block';
+
+    // populate nav
+    document.getElementById('nav-username').textContent = state.user.login;
+    document.getElementById('nav-avatar').textContent = state.user.name[0].toUpperCase();
+    document.getElementById('hero-username').textContent = state.user.login;
+
+    // settings
+    document.getElementById('settings-name').textContent = state.user.name;
+    document.getElementById('settings-login').textContent = '@' + state.user.login;
+    document.getElementById('settings-avatar').textContent = state.user.name[0].toUpperCase();
+    document.getElementById('fork-owner').value = state.user.login;
+
+    renderRepos();
+    renderBuilds();
+    populateKernelRepoSelect();
+    renderFooter();
+    showView('dashboard');
+  }, 1400);
+}
+
+function logout() {
+  state.user = null;
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('user-menu').classList.remove('open');
+}
+
+function toggleMenu() {
+  document.getElementById('user-menu').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#user-menu')) {
+    document.getElementById('user-menu')?.classList.remove('open');
+  }
+});
+
+// ── Views ─────────────────────────────────────────────────────────
+const VIEWS = ['dashboard','repos','new-build','builds','settings'];
+
+function showView(name, navEl) {
+  VIEWS.forEach(v => {
+    const el = document.getElementById('view-'+v);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById('view-'+name);
+  if (target) {
+    target.classList.remove('hidden');
+    target.classList.add('fade-in');
+    setTimeout(() => target.classList.remove('fade-in'), 300);
+  }
+  window.scrollTo(0,0);
+}
+
+function setActiveNav(name) {
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  const map = { dashboard:0, builds:1, repos:2, settings:3 };
+  const links = document.querySelectorAll('.nav-link');
+  const idx = { dashboard:0, builds:1, repos:2, settings:3 }[name];
+  if (links[idx]) links[idx].classList.add('active');
+}
+
+function showViewNav(name, el) {
+  showView(name);
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+// rewire nav links
+document.querySelectorAll('.nav-link').forEach((l, i) => {
+  const views = ['dashboard','builds','repos','settings'];
+  l.onclick = function(e) {
+    e.preventDefault();
+    showView(views[i]);
+    document.querySelectorAll('.nav-link').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+  };
+});
+
+// ── Repos ─────────────────────────────────────────────────────────
+let currentForkTarget = null;
+
+function renderRepos(filter='') {
+  const list = document.getElementById('repo-list');
+  const repos = SAMPLE_REPOS.filter(r =>
+    !filter || r.full_name.toLowerCase().includes(filter.toLowerCase()) || r.description.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  if (!repos.length) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--cds-text-secondary);font-size:14px;">No repositories found.</div>';
+    return;
+  }
+
+  const isForked = n => state.forkedRepos.some(f => f.upstream === n || f.full_name.includes(n.split('/')[1]));
+
+  list.innerHTML = repos.map(r => {
+    const forked = isForked(r.full_name);
+    return `
+    <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px;border-bottom:1px solid var(--cds-layer-02);transition:background 0.1s;" onmouseenter="this.style.background='#e8e8e8'" onmouseleave="this.style.background=''">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:var(--cds-text-primary);letter-spacing:0.16px;margin-bottom:4px;">
+          <span class="text-mono" style="color:var(--cds-button-primary);">${r.full_name}</span>
+        </div>
+        <div style="font-size:13px;color:var(--cds-text-secondary);letter-spacing:0.16px;margin-bottom:8px;">${r.description}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="tag tag-gray">${r.lang}</span>
+          <span class="tag tag-gray">&#9733; ${r.stars.toLocaleString()}</span>
+          ${forked ? '<span class="tag tag-success">Forked</span>' : ''}
+        </div>
+      </div>
+      <div>
+        ${forked
+          ? `<button class="btn btn-ghost btn-sm" disabled style="color:var(--cds-text-disabled);">Already forked</button>`
+          : `<button class="btn btn-secondary btn-sm" onclick="openForkModal('${r.full_name}')">Fork</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterRepos(v) { renderRepos(v); }
+
+function openForkModal(repoName) {
+  currentForkTarget = repoName;
+  document.getElementById('fork-modal-title').textContent = 'Fork ' + repoName.split('/')[1];
+  document.getElementById('fork-modal-repo').textContent = repoName;
+  document.getElementById('fork-name').value = repoName.split('/')[1];
+  document.getElementById('fork-modal').classList.add('open');
+}
+function closeForkModal() {
+  document.getElementById('fork-modal').classList.remove('open');
+  currentForkTarget = null;
+}
+
+function doFork() {
+  const btn = document.getElementById('fork-confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Forking...';
+
+  setTimeout(() => {
+    const forkName = document.getElementById('fork-name').value;
+    const newFork = {
+      full_name: state.user.login + '/' + forkName,
+      upstream: currentForkTarget,
+    };
+    state.forkedRepos.push(newFork);
+    populateKernelRepoSelect();
+    renderRepos(document.getElementById('repo-search').value);
+    closeForkModal();
+    btn.disabled = false;
+    btn.textContent = 'Fork & inject workflow';
+  }, 1800);
+}
+
+// ── Build list ────────────────────────────────────────────────────
+function statusTag(s) {
+  if (s === 'success') return '<span class="tag tag-success">success</span>';
+  if (s === 'failure') return '<span class="tag tag-error">failed</span>';
+  if (s === 'running') return '<span class="tag" style="background:#fff5d6;color:#785600;">running</span>';
+  return '<span class="tag tag-gray">' + s + '</span>';
+}
+
+function buildRow(b) {
+  return `
+  <div class="build-row">
+    <div class="text-mono text-secondary">#${b.id}</div>
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--cds-text-primary);">${b.repo.split('/')[1]}</div>
+      <div class="text-mono text-sm text-secondary">${b.defconfig}</div>
+    </div>
+    <div class="text-mono text-sm">${b.toolchain}</div>
+    <div>${statusTag(b.status)}</div>
+    <div class="text-mono text-sm text-secondary">${b.duration}</div>
+    <div>
+      <a href="https://github.com/${b.repo}/actions" target="_blank" class="btn btn-ghost btn-sm" style="padding:0 8px;font-size:12px;">Logs</a>
+    </div>
+  </div>`;
+}
+
+function renderBuilds() {
+  const recent = document.getElementById('recent-builds-list');
+  const all = document.getElementById('all-builds-list');
+  if (recent) recent.innerHTML = state.builds.slice(0,5).map(buildRow).join('');
+  if (all) all.innerHTML = state.builds.map(buildRow).join('');
+}
+
+// ── Build form ────────────────────────────────────────────────────
+function populateKernelRepoSelect() {
+  const sel = document.getElementById('b-kernel-repo');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- select a forked repository --</option>' +
+    state.forkedRepos.map(r => `<option value="${r.full_name}">${r.full_name}</option>`).join('');
+}
+
+function nextStep(n) {
+  for (let i = 1; i <= 5; i++) {
+    const panel = document.getElementById('build-step-' + i);
+    const step  = document.getElementById('step-' + i);
+    if (!panel || !step) continue;
+    panel.classList.add('hidden');
+    step.classList.remove('active');
+    if (i < n) step.classList.add('done');
+    else step.classList.remove('done');
+  }
+  const target = document.getElementById('build-step-' + n);
+  const stepEl = document.getElementById('step-' + n);
+  if (target) { target.classList.remove('hidden'); target.classList.add('fade-in'); setTimeout(() => target.classList.remove('fade-in'), 300); }
+  if (stepEl) stepEl.classList.add('active');
+  state.currentBuildStep = n;
+
+  if (n === 5) buildReviewSummary();
+}
+
+function updateToolchainFields() {
+  const tc = document.getElementById('b-toolchain').value;
+  const gVer = document.getElementById('field-clang-version');
+  const gCustom = document.getElementById('field-custom-clang');
+  gVer.classList.toggle('hidden', tc !== 'google-clang');
+  gCustom.classList.toggle('hidden', tc === 'google-clang' || tc === 'gcc-only');
+}
+
+function toggleReleaseTag() {
+  const checked = document.getElementById('b-create-release').checked;
+  document.getElementById('field-release-tag').classList.toggle('hidden', !checked);
+}
+
+function buildReviewSummary() {
+  const vals = {
+    'device_name':    document.getElementById('b-device-name').value,
+    'device_codename':document.getElementById('b-device-codename').value,
+    'kernel_repo':    document.getElementById('b-kernel-repo').value || '(none selected)',
+    'kernel_branch':  document.getElementById('b-kernel-branch').value,
+    'arch':           document.getElementById('b-arch').value,
+    'defconfig':      document.getElementById('b-defconfig').value,
+    'toolchain':      document.getElementById('b-toolchain').value,
+    'clang_version':  document.getElementById('b-clang-version').value,
+    'use_llvm':       document.getElementById('b-use-llvm').checked.toString(),
+    'ccache_size':    document.getElementById('b-ccache-size').value,
+    'anykernel_repo': document.getElementById('b-anykernel-repo').value,
+    'image_name':     document.getElementById('b-image-name').value,
+    'zip_prefix':     document.getElementById('b-zip-prefix').value,
+    'include_dtb':    document.getElementById('b-include-dtb').checked.toString(),
+    'include_dtbo':   document.getElementById('b-include-dtbo').checked.toString(),
+    'send_zip_tg':    document.getElementById('b-send-tg').checked.toString(),
+    'create_release': document.getElementById('b-create-release').checked.toString(),
+  };
+  const maxKey = Math.max(...Object.keys(vals).map(k => k.length));
+  document.getElementById('review-summary').innerHTML =
+    Object.entries(vals).map(([k, v]) =>
+      `<div><span style="color:var(--cds-button-primary);">${k.padEnd(maxKey, ' ')}</span>  <span style="color:var(--cds-text-primary);">${v}</span></div>`
+    ).join('');
+}
+
+// ── Dispatch & fake build log ─────────────────────────────────────
+function dispatchBuild() {
+  const repo = document.getElementById('b-kernel-repo').value;
+  if (!repo) {
+    alert('Please select a kernel repository in Step 2.');
+    nextStep(2);
+    return;
+  }
+
+  const btn = document.getElementById('dispatch-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Dispatching...';
+
+  document.getElementById('dispatch-actions').querySelector('.btn-ghost').disabled = true;
+
+  setTimeout(() => {
+    btn.innerHTML = 'Dispatched';
+    document.getElementById('dispatch-log').classList.remove('hidden');
+    document.getElementById('dispatch-notification').innerHTML = `
+      <div class="notification notification-success mb-16">
+        <div>
+          <div class="notification-title">Build dispatched</div>
+          <div class="notification-body">Workflow triggered on <span class="text-mono">${repo}</span>. Run ID: <span class="text-mono">#${Math.floor(Math.random()*9000+1000)}</span></div>
+        </div>
+      </div>`;
+    document.getElementById('dispatch-notification').classList.remove('hidden');
+    simulateBuildLog();
+  }, 1200);
+}
+
+function simulateBuildLog() {
+  const log = document.getElementById('log-output');
+  const progress = document.getElementById('build-progress');
+  const statusText = document.getElementById('build-status-text');
+  const elapsed = document.getElementById('build-elapsed');
+
+  const defconfig = document.getElementById('b-defconfig').value;
+  const toolchain = document.getElementById('b-toolchain').value;
+  const arch = document.getElementById('b-arch').value;
+  const device = document.getElementById('b-device-codename').value;
+
+  const logLines = [
+    { t:0,    cls:'log-info',    msg:'Runner: ubuntu-latest  (4 cores, 16 GB RAM)' },
+    { t:500,  cls:'log-info',    msg:'[1/9] Freeing disk space...' },
+    { t:1200, cls:'',            msg:'Removed: dotnet, azure-cli, google-chrome, snapd' },
+    { t:1800, cls:'log-success', msg:'Disk freed: 28.4 GB available' },
+    { t:2200, cls:'log-info',    msg:'[2/9] Installing build dependencies...' },
+    { t:3000, cls:'',            msg:'apt-get: bc bison ccache flex git libelf-dev libssl-dev lld zip zstd...' },
+    { t:4000, cls:'log-success', msg:'Dependencies installed.' },
+    { t:4200, cls:'log-info',    msg:'[3/9] Sending Telegram notification: Build started' },
+    { t:4600, cls:'log-info',    msg:`[4/9] Cloning kernel source (branch: main, depth: 1)...` },
+    { t:5800, cls:'',            msg:'Receiving objects: 100% (42817/42817), 312.4 MiB' },
+    { t:6200, cls:'log-success', msg:'Kernel HEAD: a1b2c3d  arm64: configs: update ' + defconfig },
+    { t:6400, cls:'log-info',    msg:'[5/9] Cloning AnyKernel3 (osm0sis/AnyKernel3, master)...' },
+    { t:7000, cls:'log-success', msg:'AnyKernel3 ready.' },
+    { t:7200, cls:'log-info',    msg:`[6/9] Toolchain: ${toolchain}` },
+    { t:8000, cls:'',            msg:`clang version 18.0.0 (${toolchain})` },
+    { t:8200, cls:'log-info',    msg:'[7/9] Restoring ccache (5G limit)...' },
+    { t:8800, cls:'log-success', msg:'ccache: 2.1 GB restored from cache.' },
+    { t:9000, cls:'log-info',    msg:`[8/9] Building kernel — ARCH=${arch}, CC=ccache clang` },
+    { t:9200, cls:'',            msg:`  make -j4 O=out ARCH=${arch} CC="ccache clang" LLVM=1 LLVM_IAS=1 ${defconfig}` },
+    { t:9800, cls:'',            msg:`  Generating .config from ${defconfig}...` },
+    { t:10400,cls:'',            msg:'  HOSTCC  scripts/basic/fixdep' },
+    { t:10800,cls:'',            msg:'  HOSTCC  scripts/kconfig/conf.o' },
+    { t:11200,cls:'',            msg:'  CC      init/main.o' },
+    { t:12000,cls:'',            msg:'  CC      kernel/fork.o' },
+    { t:12400,cls:'',            msg:'  CC      drivers/android/binder.o' },
+    { t:13000,cls:'',            msg:'  CC      net/socket.o' },
+    { t:13600,cls:'',            msg:'  LD      vmlinux' },
+    { t:14200,cls:'',            msg:'  OBJCOPY arch/arm64/boot/Image' },
+    { t:14600,cls:'log-success', msg:`  Build finished in 18m 42s` },
+    { t:15000,cls:'log-info',    msg:`[9/9] Packaging ZIP: Kernel-${device}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}.zip` },
+    { t:15600,cls:'',            msg:'  Copied Image' },
+    { t:16000,cls:'log-success', msg:`  ZIP: Kernel-${device}.zip (8.2 MB)` },
+    { t:16400,cls:'log-success', msg:'Uploading to GitHub Artifacts...' },
+    { t:17000,cls:'log-info',    msg:'Sending Telegram notification: Build succeeded + ZIP' },
+    { t:17600,cls:'log-success', msg:'=== BUILD COMPLETE ===' },
+  ];
+
+  let startTime = Date.now();
+  let elapsedInterval = setInterval(() => {
+    elapsed.textContent = Math.floor((Date.now() - startTime) / 1000) + 's';
+  }, 1000);
+
+  logLines.forEach(({ t, cls, msg }) => {
+    setTimeout(() => {
+      const now = new Date();
+      const time = now.toTimeString().slice(0,8);
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      div.innerHTML = `<span class="log-time">${time}</span><span class="${cls}">${msg}</span>`;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+
+      const pct = Math.min(100, Math.round((t / 17600) * 100));
+      progress.style.width = pct + '%';
+      statusText.textContent = msg.replace(/<[^>]+>/g,'').trim().slice(0,60) + (msg.length > 60 ? '...' : '');
+
+      if (t === 17600) {
+        clearInterval(elapsedInterval);
+        progress.classList.add('complete');
+        statusText.textContent = 'Complete';
+
+        // add cursor
+        const cursor = document.createElement('span');
+        cursor.className = 'log-cursor';
+        log.lastChild.querySelector('span:last-child').appendChild(cursor);
+
+        // add to build history
+        const newBuild = {
+          id: state.builds[0].id + 1,
+          repo: document.getElementById('b-kernel-repo').value,
+          defconfig: document.getElementById('b-defconfig').value,
+          toolchain: document.getElementById('b-toolchain').value,
+          status: 'success',
+          duration: '18m 42s',
+          sha: Math.random().toString(16).slice(2,10),
+        };
+        state.builds.unshift(newBuild);
+        renderBuilds();
+
+        setTimeout(() => showBuildDoneModal(newBuild), 600);
+      }
+    }, t);
+  });
+}
+
+function showBuildDoneModal(build) {
+  document.getElementById('build-done-title').textContent = 'Build #' + build.id + ' complete';
+  document.getElementById('build-done-content').innerHTML = `
+    <div class="notification notification-success mb-16">
+      <div>
+        <div class="notification-title">Kernel built successfully</div>
+        <div class="notification-body">Your flashable ZIP is ready in GitHub Artifacts.</div>
+      </div>
+    </div>
+    <table class="data-table">
+      <tr><td class="text-secondary">Repository</td><td class="mono">${build.repo}</td></tr>
+      <tr><td class="text-secondary">Defconfig</td><td class="mono">${build.defconfig}</td></tr>
+      <tr><td class="text-secondary">Toolchain</td><td class="mono">${build.toolchain}</td></tr>
+      <tr><td class="text-secondary">Duration</td><td class="mono">${build.duration}</td></tr>
+      <tr><td class="text-secondary">Status</td><td>${statusTag(build.status)}</td></tr>
+    </table>
+    <div class="mt-16">
+      <a href="https://github.com/${build.repo}/actions" target="_blank" class="btn btn-secondary btn-sm">View on GitHub Actions &rarr;</a>
+    </div>`;
+  document.getElementById('build-done-modal').classList.add('open');
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Footer ────────────────────────────────────────────────────────
+function renderFooter() {
+  document.getElementById('footer-placeholder').innerHTML = `
+  <footer class="footer">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">KernelForge</div>
+        <div class="footer-desc">Cloud kernel build platform for Android. Powered by GitHub Actions. No build infrastructure to maintain.</div>
+      </div>
+      <div>
+        <div class="footer-heading">Platform</div>
+        <a href="#" class="footer-link" onclick="showView('dashboard')">Dashboard</a>
+        <a href="#" class="footer-link" onclick="showView('builds')">Builds</a>
+        <a href="#" class="footer-link" onclick="showView('repos')">Repositories</a>
+      </div>
+      <div>
+        <div class="footer-heading">Resources</div>
+        <a href="https://docs.github.com/en/actions" target="_blank" class="footer-link">GitHub Actions</a>
+        <a href="https://github.com/osm0sis/AnyKernel3" target="_blank" class="footer-link">AnyKernel3</a>
+        <a href="https://t.me/BotFather" target="_blank" class="footer-link">Telegram BotFather</a>
+      </div>
+      <div>
+        <div class="footer-heading">Account</div>
+        <a href="#" class="footer-link" onclick="showView('settings')">Settings</a>
+        <a href="#" class="footer-link" onclick="logout()">Sign out</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">KernelForge &mdash; builds run in your own GitHub Actions environment</div>
+      <div class="footer-copy text-mono">v1.0.0</div>
+    </div>
+  </footer>`;
+}
+</script>
+</body>
+</html>
